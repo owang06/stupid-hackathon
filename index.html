@@ -17,15 +17,27 @@
         }
 
         #facecam {
+            width: 100%;           /* full width of parent */
+            height: auto;          /* maintain aspect ratio */
+            object-fit: cover;     /* scale and crop to fill */
             border-radius: 12px;
             box-shadow: 0 10px 40px rgba(76, 175, 80, 0.3);
+            transform: scaleX(-1); /* mirror horizontally */
         }
 
-        body{
-            transform: scale(0.9); /* 0.9 = 90% of original size */
-            transform-origin: top left; /* keep layout anchored */
-            align-items: center;
+        body {
+            display: flex;
+            justify-content: center;
+            background: linear-gradient(to bottom right, #111, #222);
+            overflow-x: hidden;
+            margin: 0;
+            padding: 0;
         }
+
+        .scale-container {
+            transform-origin: top center; /* center horizontally */
+        }
+
 
         /* Custom slider styling */
         input[type="range"] {
@@ -84,17 +96,29 @@
             <p class="text-gray-400 text-sm">Control YouTube volume with your voice</p>
         </div>
 
-        <!-- Main Content - Side by Side Layout -->
-        <div class="grid grid-cols-[850px_300px] gap-4">
+    <!-- Main Content - Side by Side Layout -->
+    <div class="grid gap-4 grid-cols-1 md:grid-cols-[850px_300px] justify-center items-start">
             <!-- Left: YouTube Player -->
             <div class="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-4 shadow-2xl border border-gray-700/50">
-                <div class="relative rounded-xl overflow-hidden shadow-2xl" style="width: 100%; height: 619px;">
+                <div class="relative rounded-xl overflow-hidden shadow-2xl" style="width: 100%; aspect-ratio: 16 / 9;">
                     <iframe id="youtubeFrame" 
-                            class="w-full h-full"
+                            class="w-full h-full block border-0" 
                             src="https://www.youtube.com/embed/Oo9EbArcQ1c?enablejsapi=1&controls=1&rel=0&modestbranding=1"
                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                             allowfullscreen>
                     </iframe>
+                </div>
+
+                <!-- URL input -->
+                <div class="mt-3 flex gap-2">
+                    <input id="youtubeURLInput" 
+                        type="text" 
+                        placeholder="Enter YouTube URL" 
+                        class="flex-1 px-3 py-2 rounded-lg text-black focus:outline-none" />
+                    <button id="loadVideoBtn" 
+                            class="px-4 py-2 bg-green-500 hover:bg-green-600 rounded-lg text-white font-semibold">
+                        Load Video
+                    </button>
                 </div>
             </div>
 
@@ -118,17 +142,17 @@
                 </div>
 
                 <!-- Vertical Loudness Spectrum Card -->
-                <div class="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-4 shadow-2xl border border-gray-700/50 flex-1">
+                <div class="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-4 shadow-2xl border border-gray-700/50 flex-1" style="height: 265px;">
                     <h2 class="text-sm font-semibold mb-2 flex items-center gap-2">
                         <span class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
                         Loudness
                     </h2>
                     
-                    <div class="bg-black/50 rounded-xl p-3 mb-3 flex justify-center items-center" style="height: 400px;">
-                        <canvas id="pitchVisualizer" width="200" height="400" class="rounded-lg"></canvas>
+                    <div class="bg-black/50 rounded-xl p-3 mb-3 flex justify-center items-center" style="height: 210px;">
+                        <canvas id="pitchVisualizer" width="275" height="210px" class="rounded-lg"></canvas>
                     </div>
 
-                    <!-- Sensitivity Control - Compact -->
+                    <!-- Sensitivity Control - Compact
                     <div class="bg-gray-700/30 rounded-xl p-3 mb-3">
                         <label for="sensitivitySlider" class="block text-xs font-medium text-gray-300 mb-2">
                             Sensitivity
@@ -147,14 +171,14 @@
                                    step="0.5"
                                    class="w-full">
                         </div>
-                    </div>
+                    </div> -->
 
                     <!-- Status - Compact -->
-                    <div class="bg-gray-700/30 rounded-xl p-2">
+                    <!-- <div class="bg-gray-700/30 rounded-xl p-2">
                         <div id="status" class="text-center text-xs text-gray-300">
                             Requesting microphone access...
                         </div>
-                    </div>
+                    </div> -->
                 </div>
             </div>
         </div>
@@ -170,10 +194,10 @@
         let bufferLength;
         let animationFrame;
         let pitchVisualizerCanvas;
-        let pitchVisualizerCtx;
+        let pitchVisualizerCtx; 
         let sensitivity = 5.0;
         let smoothedVolume = 0;
-        const smoothingFactor = 0.85;
+        const smoothingFactor = 0.9;
 
         // Function to update YouTube volume via iframe postMessage
         function updateYouTubeVolume(volume) {
@@ -193,7 +217,7 @@
 
         async function initAudio() {
             try {
-                console.log('Requesting microphone and camera access...');
+                //console.log('Requesting microphone and camera access...');
                 mediaStream = await navigator.mediaDevices.getUserMedia({ 
                     audio: true, 
                     video: { 
@@ -203,7 +227,7 @@
                     } 
                 });
                 
-                console.log('Microphone and camera access granted!');
+                //console.log('Microphone and camera access granted!');
                 
                 const facecam = document.getElementById('facecam');
                 if (facecam && mediaStream) {
@@ -212,7 +236,7 @@
                 }
                 
                 const statusEl = document.getElementById('status');
-                statusEl.innerHTML = '<span class="text-green-400">✓ Microphone and camera active - Loudness controls volume</span>';
+                //statusEl.innerHTML = '<span class="text-green-400">✓ Microphone and camera active - Loudness controls volume</span>';
 
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 analyser = audioContext.createAnalyser();
@@ -368,6 +392,27 @@
 
         initAudio();
         window.addEventListener('beforeunload', cleanup);
+
+        // Change YouTube URL dynamically
+        document.getElementById('loadVideoBtn').addEventListener('click', () => {
+            const input = document.getElementById('youtubeURLInput');
+            let url = input.value.trim();
+
+            if (!url) return;
+
+            // Convert full URL to embed URL if necessary
+            const videoIdMatch = url.match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+            if (!videoIdMatch) {
+                alert("❌ Invalid YouTube URL");
+                return;
+            }
+            const videoId = videoIdMatch[1];
+            const embedUrl = `https://www.youtube.com/embed/${videoId}?enablejsapi=1&controls=1&rel=0&modestbranding=1`;
+
+            const iframe = document.getElementById('youtubeFrame');
+            iframe.src = embedUrl;
+        });
+
     </script>
 </body>
 </html>
