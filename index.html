@@ -5,74 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Microphone Volume Controller</title>
     <link rel="stylesheet" href="style.css">
-    <style>
-        body {
-            flex-direction: column;
-            gap: 30px;
-        }
-
-        #pitchVisualizer {
-            border: 2px solid #333;
-            background-color: #000;
-            border-radius: 8px;
-            margin-top: 20px;
-        }
-
-        #player {
-            min-height: 619px;
-            background-color: #000;
-            border-radius: 8px;
-        }
-
-        .status {
-            font-size: 16px;
-            color: #666;
-            text-align: center;
-            font-family: Arial, sans-serif;
-            margin-top: 10px;
-        }
-
-        .sensitivity-control {
-            margin-top: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 15px;
-            font-family: Arial, sans-serif;
-        }
-
-        .sensitivity-control label {
-            font-size: 14px;
-            color: #333;
-        }
-
-        .sensitivity-control input[type="range"] {
-            width: 300px;
-            height: 6px;
-            border-radius: 3px;
-            background: #ddd;
-            outline: none;
-        }
-
-        .sensitivity-control input[type="range"]::-webkit-slider-thumb {
-            appearance: none;
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            background: #4CAF50;
-            cursor: pointer;
-        }
-
-        .sensitivity-value {
-            font-weight: bold;
-            color: #4CAF50;
-            min-width: 40px;
-        }
-    </style>
 </head>
-<body>
-    <div id="player"></div>
 
+<body>
+    <h1>SCREAMSTREAM</h1>
+    <div>
+        <input type="text" id="url" name="url" placeholder="url" required>
+    </div>
+
+    <div id="player"></div>
+    
     <div>
         <canvas id="pitchVisualizer" width="1100" height="200"></canvas>
         <div class="sensitivity-control">
@@ -104,6 +46,42 @@
         let sensitivity = 5.0;
         let smoothedVolume = 0;
         const smoothingFactor = 0.85; // Higher = more smoothing (volume holds better)
+
+        const urlInput = document.getElementById('url');
+
+        urlInput.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault(); // prevent form submission / default behavior
+                
+                let url = urlInput.value.trim();
+                if (!url) return;
+
+                // Extract the video ID from a YouTube URL
+                let videoId = null;
+
+                try {
+                    const urlObj = new URL(url);
+                    if (urlObj.hostname.includes('youtube.com')) {
+                        videoId = urlObj.searchParams.get('v'); // standard youtube URL
+                    } else if (urlObj.hostname === 'youtu.be') {
+                        videoId = urlObj.pathname.slice(1); // short URL
+                    }
+                } catch (e) {
+                    console.error('Invalid URL:', e);
+                }
+
+                if (!videoId) {
+                    alert('Invalid YouTube URL');
+                    return;
+                }
+
+                // Update the video in the existing player
+                if (player && typeof player.loadVideoById === 'function') {
+                    player.loadVideoById(videoId);
+                    console.log('Loaded new video ID:', videoId);
+                }
+            }
+        });
 
         // Called automatically when the API is ready (must be in global scope)
         window.onYouTubeIframeAPIReady = function() {
