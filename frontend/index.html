@@ -1,34 +1,85 @@
 <!DOCTYPE html>
 <html>
   <body>
-    <link rel="stylesheet" href="style.css">
-
     <div id="player"></div>
+    <button id="start">Start Mic</button>
+    <label>Sensitivity: <input id="sensitivity" type="range" min="0" max="500" value="300"></label>
+
+    <p>Mic volume level:</p>
+    <div id="volumeMeter" style="width: 300px; height: 20px; background: lightgray;">
+      <div id="volumeLevel" style="width: 0%; height: 100%; background: green;"></div>
+    </div>
 
     <script>
-      // Load the IFrame Player API asynchronously
       const tag = document.createElement('script');
       tag.src = "https://www.youtube.com/iframe_api";
-      const firstScriptTag = document.getElementsByTagName('script')[0];
-      firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+      document.head.appendChild(tag);
 
       let player;
-
-      // Called automatically when the API is ready
       function onYouTubeIframeAPIReady() {
         player = new YT.Player('player', {
-          height: '619',
-          width: '1100',
-          videoId: 'Oo9EbArcQ1c', // change this to any video ID
-          playerVars: {
-            playsinline: 1
-          }
+          height: '360',
+          width: '640',
+          videoId: 'Oo9EbArcQ1c',
+          playerVars: { playsinline: 1 }
         });
       }
-    </script>
 
-    <div>
-      <p>Current Audio: </p>
-    </div>
+      document.getElementById("start").onclick = async () => {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const audioCtx = new AudioContext();
+        const source = audioCtx.createMediaStreamSource(stream);
+
+        const analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 512;
+        source.connect(analyser);
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+        const sensitivityInput = document.getElementById("sensitivity");
+        const volumeLevel = document.getElementById("volumeLevel");
+
+        let lastTime = 0;
+        const interval = 10; // 1000ms = 1 second
+        const last_volume = 0;
+        let smoothedVolume = 0; // persistent variable
+
+      function updateVolume(time) {
+        if (time - lastTime >= interval) {
+          analyser.getByteTimeDomainData(dataArray);
+
+          // Compute RMS amplitude
+          let sum = 0;
+          for (let i = 0; i < dataArray.length; i++) {
+            const val = (dataArray[i] - 128) / 128;
+            sum += val * val;
+          }
+          const rms = Math.sqrt(sum / dataArray.length);
+
+          // Map RMS to volume
+          const sensitivity = parseInt(sensitivityInput.value)*4;
+          const volume = Math.min(100, Math.max(0, Math.floor(rms * sensitivity)));
+
+          // Smooth volume
+          const smoothingFactor = 0.5;
+          smoothedVolume = smoothedVolume * smoothingFactor + volume * (1 - smoothingFactor);
+
+          if (player && player.setVolume) {
+            player.setVolume(smoothedVolume);
+          }
+
+          // Update green bar
+          volumeLevel.style.width = smoothedVolume + '%';
+
+          lastTime = time;
+        }
+
+        requestAnimationFrame(updateVolume);
+      }
+
+
+        requestAnimationFrame(updateVolume);
+        console.log("Mic control active!");
+      };
+    </script>
   </body>
 </html>
